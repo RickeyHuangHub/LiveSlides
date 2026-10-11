@@ -1,0 +1,27 @@
+# LiveSlides
+
+> Local-first PowerPoint (.pptx) to HTML electronic brochure converter and responsive flipbook player. Page-curl playback, company/catalog configuration, QR sharing and offline HTML export. Phase 1 prototype, not an AI slide generator. MP4 export uses FFmpeg and static cuts, not browser curl recording.
+
+Canonical repository: https://github.com/RickeyHuangHub/LiveSlides
+Version: 0.1.0. Documentation snapshot: 2026-10-10.
+
+## Documentation
+
+- [MP4 export](https://github.com/RickeyHuangHub/LiveSlides/blob/main/docs/mp4-export.md): FFmpeg-based H.264 static-cut video export, distinct from interactive curl playback.
+
+- [README](https://github.com/RickeyHuangHub/LiveSlides/blob/main/README.md): Features, Windows setup, architecture, limits.
+- [中文说明](https://github.com/RickeyHuangHub/LiveSlides/blob/main/docs/README.zh-CN.md): Chinese introduction and usage.
+- [Facts and FAQ](https://github.com/RickeyHuangHub/LiveSlides/blob/main/docs/project-facts.md): Implemented capabilities and boundaries.
+- [Offline playback](https://github.com/RickeyHuangHub/LiveSlides/blob/main/docs/offline-player.md): HTML export and validation limits.
+- [Company configuration](https://github.com/RickeyHuangHub/LiveSlides/blob/main/docs/multi-tenant.md): Routes, data model and security boundaries.
+- [Responsive reading](https://github.com/RickeyHuangHub/LiveSlides/blob/main/docs/responsive-reading.md): Cover/spread and mobile reading rules.
+
+## Source
+
+- [Converter](https://github.com/RickeyHuangHub/LiveSlides/blob/main/converter/convert.py): PPTX / PDF / WebP pipeline.
+- [Viewer](https://github.com/RickeyHuangHub/LiveSlides/blob/main/src/ResponsiveBook.jsx): Desktop Canvas and mobile soft HTML pages.
+- [Offline exporter](https://github.com/RickeyHuangHub/LiveSlides/blob/main/offline_export.py): Embedded assets and ZIP output.
+
+## Limits
+
+Current conversion setup is Windows-specific. Login, tenant authorization and forced phone landscape are not implemented. Physical device acceptance is required. No project license is selected. Customer documents and generated assets are not included.

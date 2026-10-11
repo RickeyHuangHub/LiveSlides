@@ -1,0 +1,14 @@
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "LiveSlides",
+  "description": "Local-first PowerPoint to HTML digital brochure converter with responsive flipbook playback, QR sharing, multi-company configuration and self-contained offline HTML export.",
+  "codeRepository": "https://github.com/RickeyHuangHub/LiveSlides",
+  "url": "https://github.com/RickeyHuangHub/LiveSlides",
+  "version": "0.1.0",
+  "programmingLanguage": ["JavaScript", "Python"],
+  "runtimePlatform": "Windows conversion environment; modern browser playback",
+  "inLanguage": ["en", "zh-CN"],
+  "keywords": ["PowerPoint to HTML", "PPTX converter", "digital brochure", "flipbook", "offline presentation", "PPT 转 HTML", "电子画册"],
+  "author": {"@type": "Person", "name": "RickeyHuangHub", "url": "https://github.com/RickeyHuangHub"}
+}
