@@ -13,5 +13,6 @@ export interface CatalogConfig {
   mediaType: 'album' | 'video';
   albumId: string;
   videoUrl: string;
+  musicUrl?: string;
 }
 export interface ConfigStore { tenants: TenantConfig[]; catalogs: CatalogConfig[] }

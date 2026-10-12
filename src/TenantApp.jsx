@@ -53,6 +53,43 @@ export async function downloadOffline(context, albumId) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
+export function MusicToggle() {
+  const { catalog } = useTenant() || {};
+  const audio = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [error, setError] = useState('');
+  if (!catalog?.musicUrl) return null;
+  return <span className="music-toggle"><audio ref={audio} src={catalog.musicUrl} loop preload="none" onPlay={() => { setPlaying(true); setError(''); }} onPause={() => setPlaying(false)} onError={() => setError('音频加载失败')}/><button type="button" aria-label={playing ? '暂停背景音乐' : '播放背景音乐'} title={error || '背景音乐'} onClick={() => { if (audio.current?.paused) audio.current.play().catch(() => setError('点击后仍无法播放，请检查音频文件')); else audio.current?.pause(); }}>{playing ? '音乐暂停' : '播放音乐'}</button></span>;
+}
+
+function LocalImageField({ label, value, onChange, kind }) {
+  const input = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const [error, setError] = useState('');
+  const imageTypes = ['image/png', 'image/jpeg', 'image/svg+xml'];
+  function readFile(file) {
+    if (!file) return;
+    if (!imageTypes.includes(file.type)) { setError('请选择 PNG、JPG 或 SVG 图片。'); return; }
+    if (file.size > 2 * 1024 * 1024) { setError('图片不能超过 2 MB，请压缩后重试。'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { onChange(String(reader.result || '')); setError(''); };
+    reader.onerror = () => setError('图片读取失败，请重试。');
+    reader.readAsDataURL(file);
+  }
+  return <div className={`image-upload-field ${kind || ''}`} onDragOver={event => { event.preventDefault(); setDragging(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false); }} onDrop={event => { event.preventDefault(); setDragging(false); readFile(event.dataTransfer.files?.[0]); }}>
+    <span className="image-upload-label">{label}</span>
+    <input ref={input} className="image-upload-input" type="file" accept="image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg" aria-label={label} onChange={event => { readFile(event.target.files?.[0]); event.target.value = ''; }}/>
+    {value ? <div className={`image-preview ${dragging ? 'dragging' : ''}`}>
+      <img src={value} alt={`${label}预览`}/>
+      <div className="image-preview-actions"><button type="button" onClick={() => input.current?.click()}>更换</button><button type="button" onClick={() => { onChange(''); setError(''); }}>删除</button></div>
+      {dragging && <span className="image-drop-overlay">松开以替换图片</span>}
+    </div> : <button type="button" className={`image-dropzone ${dragging ? 'dragging' : ''}`} onClick={() => input.current?.click()}>
+      <span className="image-empty-thumb" aria-hidden="true"/><span className="image-drop-copy"><strong>选择图片</strong><small>{kind === 'background' ? 'PNG/JPG/SVG · 建议小于 2 MB' : 'PNG/JPG/SVG · 建议透明 PNG'}</small></span>
+    </button>}
+    {error && <small className="image-upload-error" role="alert">{error}</small>}
+  </div>;
+}
+
 function Theme({ tenant, children }) {
   return <div className="tenant-theme" style={{ '--tenant-primary': tenant?.primaryColor || '#f36948', '--tenant-background': tenant?.backgroundUrl ? `url("${tenant.backgroundUrl}")` : 'none' }}>{children}</div>;
 }
@@ -107,7 +144,7 @@ function Landing({ Viewer, tenantId, catalogId }) {
   if (error) return <main className="config-error" role="alert">无法打开画册：{error}</main>;
   if (!resolved) return <main className="config-error">正在载入公司配置…</main>;
   const { tenant, catalog, album } = resolved;
-  return <Context.Provider value={{ tenant, catalog }}><Theme tenant={tenant}>{catalog.mediaType === 'video' ? <VideoPlayer catalog={catalog}/> : <Viewer {...resolved} album={{ ...album, title: catalog.title, viewer: { ...album.viewer, autoplay: true, loop: true } }} onBack={() => location.assign('/')} />}</Theme></Context.Provider>;
+  return <Context.Provider value={{ tenant, catalog }}><Theme tenant={tenant}>{catalog.mediaType === 'video' ? <VideoPlayer catalog={catalog}/> : <Viewer {...resolved} album={{ ...album, title: catalog.title, viewer: { ...album.viewer, autoplay: true, loop: true } }} onBack={() => location.assign(`/?album=${encodeURIComponent(catalog.albumId)}`)} />}</Theme></Context.Provider>;
 }
 
 export default function TenantApp({ CreatorApp, Viewer }) {
@@ -133,26 +170,34 @@ function Studio({ CreatorApp }) {
   useEffect(() => { Promise.all([api('/api/config'), api('/api/album-list')]).then(([data, list]) => { update(data); setAlbums(list); const legacyId = new URLSearchParams(location.search).get('album'); const selected = data.catalogs.find(c => c.albumId === legacyId) || data.catalogs[0]; setTenantId(selected?.tenantId || data.tenants[0]?.id || ''); setCatalogId(selected?.id || ''); }).catch(e => setMessage(e.message)); }, []);
   const tenant = store?.tenants.find(t => t.id === tenantId);
   const catalog = store?.catalogs.find(c => c.tenantId === tenantId && c.id === catalogId);
+  const tenantCatalogs = store?.catalogs.filter(c => c.tenantId === tenantId) || [];
   const persist = async () => { const saved = await api('/api/config', latest.current); update(saved); return saved; };
   const attach = async target => { const data = latest.current; const saved = await api('/api/config', { ...data, catalogs: [...data.catalogs.filter(c => !(c.tenantId === target.tenantId && c.id === target.id)), target] }); update(saved); setCatalogId(target.id); };
   const changeTenant = (key, value) => update({ ...store, tenants: store.tenants.map(t => t.id === tenantId ? { ...t, [key]: value } : t) });
   const changeCatalog = (key, value) => update({ ...store, catalogs: store.catalogs.map(c => c.tenantId === tenantId && c.id === catalogId ? { ...c, [key]: value } : c) });
+  async function uploadMusic(file) {
+    if (!file) return;
+    const form = new FormData(); form.append('file', file); form.append('tenantId', tenantId); form.append('catalogId', catalogId);
+    const response = await fetch('/api/music-upload', { method: 'POST', body: form });
+    const result = await response.json(); if (!response.ok) throw new Error(result.error || '音乐上传失败');
+    changeCatalog('musicUrl', result.musicUrl); await persist(); setMessage(`背景音乐已上传（${(result.bytes / 1048576).toFixed(1)} MB）`);
+  }
   async function run(action) { setBusy(true); setMessage(''); try { await action(); } catch (e) { setMessage(e.message); } finally { setBusy(false); } }
   async function publish() { await persist(); if (!catalog) throw new Error('请先添加画册'); const result = await api('/api/catalog-publish', { tenantId, catalogId }); setShare({ ...result, qr: await QRCode.toDataURL(result.url, { width: 1024, margin: 4, errorCorrectionLevel: 'H' }) }); }
   function addTenant() { const id = `company-${Date.now()}`; update({ ...store, tenants: [...store.tenants, { id, name: '新公司', slogan: '', logoUrl: '', backgroundUrl: '', primaryColor: '#336699' }] }); setTenantId(id); setCatalogId(''); }
-  function addCatalog() { const id = `catalog-${Date.now()}`; update({ ...store, catalogs: [...store.catalogs, { id, tenantId, title: '新画册', mediaType: 'album', albumId: albums[0]?.id || '', videoUrl: '' }] }); setCatalogId(id); }
+  function addCatalog() { const id = `catalog-${Date.now()}`; const usedNames = new Set(tenantCatalogs.map(c => c.title)); let number = 1; while (usedNames.has(`新画册 ${number}`)) number += 1; update({ ...store, catalogs: [...store.catalogs, { id, tenantId, title: `新画册 ${number}`, mediaType: 'album', albumId: albums[0]?.id || '', videoUrl: '' }] }); setCatalogId(id); }
   if (!store) return <main className="config-error">{message || '正在载入配置…'}</main>;
   const context = { tenant, catalog, persist, attach };
   return <Context.Provider value={context}><Theme tenant={tenant}><button className="config-toggle" onClick={() => setOpen(!open)}>公司配置</button>
     <div className={open ? 'config-layout' : ''}>{open && <aside className="config-sidebar"><h2>公司与画册</h2><p>配置独立于 PPT 内容；保存后分享页生效。</p>
-      <fieldset disabled={busy}><label>公司预设<select value={tenantId} onChange={e => { setTenantId(e.target.value); setCatalogId(store.catalogs.find(c => c.tenantId === e.target.value)?.id || ''); }}>{store.tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label><button onClick={addTenant}>＋ 公司</button>
-      {tenant && <><small>公司 ID：{tenant.id}</small>{[['name', '公司名称'], ['slogan', '标语'], ['logoUrl', 'Logo URL'], ['backgroundUrl', '背景图 URL'], ['primaryColor', '主色调']].map(([key, label]) => <label key={key}>{label}<input type={key === 'primaryColor' ? 'color' : 'text'} value={tenant[key]} onChange={e => changeTenant(key, e.target.value)}/></label>)}<div className="brand-preview">{tenant.logoUrl && <img src={tenant.logoUrl} alt="公司 Logo"/>}<strong>{tenant.name}</strong><p>{tenant.slogan}</p></div>
-      <label>画册<select value={catalogId} onChange={e => setCatalogId(e.target.value)}><option value="">请选择</option>{store.catalogs.filter(c => c.tenantId === tenantId).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select></label><button onClick={addCatalog}>＋ 画册</button></>}
-      {catalog && <><small>画册 ID：{catalog.id}</small><label>标题<input value={catalog.title} onChange={e => changeCatalog('title', e.target.value)}/></label><label>内容类型<select value={catalog.mediaType} onChange={e => changeCatalog('mediaType', e.target.value)}><option value="album">PPT 画册</option><option value="video">视频直链</option></select></label>{catalog.mediaType === 'album' ? <label>绑定已转换画册<select value={catalog.albumId} onFocus={() => api('/api/album-list').then(setAlbums).catch(e => setMessage(e.message))} onChange={e => changeCatalog('albumId', e.target.value)}><option value="">请选择</option>{albums.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}</select></label> : <label>视频直链<input type="url" value={catalog.videoUrl} onChange={e => changeCatalog('videoUrl', e.target.value)}/></label>}<p className="route-preview">/v/{tenantId}/{catalogId}</p></>}
-      <button onClick={() => run(async () => { await persist(); setMessage('配置已保存'); })}>保存配置</button><button disabled={!catalog} onClick={() => run(async () => { await persist(); location.assign(`/v/${tenantId}/${catalogId}`); })}>打开播放页</button><button disabled={!catalog} onClick={() => run(publish)}>发布 / 二维码</button>
+      <fieldset className="config-sidebar-scroll" disabled={busy}>{catalog?.mediaType === 'album' && <a className="music-settings-jump" href="#music-upload-card">♫　背景音乐设置</a>}<label>公司预设<select value={tenantId} onChange={e => { setTenantId(e.target.value); setCatalogId(store.catalogs.find(c => c.tenantId === e.target.value)?.id || ''); }}>{store.tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label><button onClick={addTenant}>＋ 公司</button>
+      {tenant && <><small>公司 ID：{tenant.id}</small>{[['name', '公司名称'], ['slogan', '标语']].map(([key, label]) => <label key={key}>{label}<input type="text" value={tenant[key]} onChange={e => changeTenant(key, e.target.value)}/></label>)}<LocalImageField label="Logo 图片" kind="logo" value={tenant.logoUrl} onChange={value => changeTenant('logoUrl', value)}/><LocalImageField label="背景图片" kind="background" value={tenant.backgroundUrl} onChange={value => changeTenant('backgroundUrl', value)}/><label>主色调<input type="color" value={tenant.primaryColor} onChange={e => changeTenant('primaryColor', e.target.value)}/></label><div className="brand-preview">{tenant.logoUrl && <img src={tenant.logoUrl} alt="公司 Logo"/>}<strong>{tenant.name}</strong><p>{tenant.slogan}</p></div>
+      <label>画册切换器<select aria-label="画册切换器" value={catalogId} disabled={!tenantCatalogs.length} onChange={e => setCatalogId(e.target.value)}><option value="">{tenantCatalogs.length ? '选择一份画册' : '暂无画册配置'}</option>{tenantCatalogs.map(c => { const shortId = c.albumId ? c.albumId.replace(/^album-/, '').slice(0, 6) : c.id.replace(/^catalog-/, '').slice(-6); const shortType = c.albumId ? 'PPT' : '配置'; const unbound = c.mediaType === 'album' && !c.albumId; return <option key={c.id} value={c.id}>{c.title?.trim() || '未命名画册'} · {shortType} {shortId}{unbound ? ' · 未绑定 PPT' : ''}</option>; })}</select></label><button onClick={addCatalog}>＋ 画册</button></>}
+      {catalog && <><small>当前配置 ID：{catalog.id}</small><label>标题<input value={catalog.title} onChange={e => changeCatalog('title', e.target.value)}/></label><label>内容类型<select value={catalog.mediaType} onChange={e => changeCatalog('mediaType', e.target.value)}><option value="album">PPT 画册</option><option value="video">视频直链</option></select></label>{catalog.mediaType === 'album' ? <><label>绑定已转换画册<select value={catalog.albumId} onFocus={() => api('/api/album-list').then(setAlbums).catch(e => setMessage(e.message))} onChange={e => changeCatalog('albumId', e.target.value)}><option value="">请选择</option>{albums.map(a => <option key={a.id} value={a.id}>{a.title} · {a.id.replace(/^album-/, '').slice(0, 6)}</option>)}</select></label><section id="music-upload-card" className="music-upload-card"><strong>背景音乐</strong><p>为画册添加播放音乐（MP3，最大 25 MB）</p><label className="music-file-button"><span>选择音乐文件</span><input type="file" accept=".mp3,audio/mpeg" onChange={e => run(() => uploadMusic(e.target.files?.[0]))}/></label><small>{catalog.musicUrl ? '已配置音乐 · 可重新选择替换' : '可选 · 在线播放、离线包和 MP4 均可使用'}</small></section></> : <label>视频直链<input type="url" value={catalog.videoUrl} onChange={e => changeCatalog('videoUrl', e.target.value)}/></label>}<p className="route-preview">/v/{tenantId}/{catalogId}</p></>}
+      <button disabled={!catalog} onClick={() => run(async () => { await persist(); location.assign(`/v/${tenantId}/${catalogId}`); })}>打开播放页</button><button disabled={!catalog} onClick={() => run(publish)}>发布 / 二维码</button>
       <button disabled={!catalog || catalog.mediaType !== 'album'} onClick={() => run(async () => { setMessage('正在生成离线播放包，请稍候…'); await downloadOffline(context); setMessage('已发起 ZIP 下载。解压后双击“开始播放.html”，即可离线循环播放。'); })}>{busy ? '处理中…' : '下载离线播放包'}</button><p>离线包仅支持 PPT 画册；无需安装程序，解压后双击 HTML 播放。</p>
-      <VideoExportButton key={`${tenantId}/${catalogId}`}/><p>MP4：1080p 静态切页，无音轨；不是卷页录屏。循环需播放器开启。</p>
-      <details><summary>JSON 配置导入 / 导出</summary><button onClick={() => setJson(JSON.stringify(store, null, 2))}>载入当前配置</button><textarea aria-label="JSON 配置" value={json} onChange={e => setJson(e.target.value)}/><button onClick={() => run(async () => { const saved = await api('/api/config', JSON.parse(json)); update(saved); setTenantId(saved.tenants[0]?.id || ''); setCatalogId(saved.catalogs[0]?.id || ''); setMessage('JSON 配置已校验并保存'); })}>校验并保存 JSON</button></details></fieldset><p role="status">{message}</p></aside>}
+      <VideoExportButton key={`${tenantId}/${catalogId}`}/><p>MP4：1080p 静态切页；配置背景音乐后可包含音轨，不是卷页录屏。循环需播放器开启。</p>
+      <details><summary>JSON 配置导入 / 导出</summary><button onClick={() => setJson(JSON.stringify(store, null, 2))}>载入当前配置</button><textarea aria-label="JSON 配置" value={json} onChange={e => setJson(e.target.value)}/><button onClick={() => run(async () => { const saved = await api('/api/config', JSON.parse(json)); update(saved); setTenantId(saved.tenants[0]?.id || ''); setCatalogId(saved.catalogs[0]?.id || ''); setMessage('JSON 配置已校验并保存'); })}>校验并保存 JSON</button></details></fieldset><p className="config-status" role="status">{message}</p><div className="config-sticky-footer"><button type="button" disabled={busy} onClick={() => run(async () => { await persist(); setMessage('配置已保存'); })}>保存配置</button></div></aside>}
       <div className="creator-content"><CreatorApp key={tenantId}/></div></div>
     {share && <div className="tenant-modal" role="dialog" aria-modal="true" aria-label="发布结果"><section><button onClick={() => setShare(null)}>关闭</button><h2>发布完成</h2><img src={share.qr} alt="画册分享二维码"/><a href={share.url} target="_blank" rel="noreferrer">{share.url}</a><button onClick={() => copyLink(share.url).then(() => setMessage('链接已复制')).catch(() => setMessage('请手动复制上方链接'))}>复制链接</button><a download={`${tenantId}-${catalogId}-qr.png`} href={share.qr}>下载二维码图片 (PNG)</a><p role="status">{message}</p><p>{share.addressMode === 'lan' ? '手机需连接同一局域网，电脑服务需保持运行。' : '请确保正式域名已部署并可访问。'}</p></section></div>}
   </Theme></Context.Provider>;

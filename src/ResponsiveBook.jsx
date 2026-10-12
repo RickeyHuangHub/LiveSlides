@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PageFlip } from 'page-flip';
 import QRCode from 'qrcode';
-import { useTenant, publishConfigured, downloadOffline } from './TenantApp';
+import { useTenant, publishConfigured, downloadOffline, VideoExportButton, MusicToggle } from './TenantApp';
 import './responsive-book.css';
 
-export default function ResponsiveBook({ album, base, id }) {
+export default function ResponsiveBook({ album, base, id, onBack }) {
   const tenantContext = useTenant();
   const pages = album.pages;
   const [viewport, setViewport] = useState({ w: innerWidth, h: innerHeight });
@@ -167,7 +167,7 @@ export default function ResponsiveBook({ album, base, id }) {
   }
   return <div data-layout={single ? 'single' : 'spread'} data-page={pages[index].id} data-phase={closed ? (opening ? 'opening' : 'cover') : 'reading'} className={`responsive-book ${visible ? 'controls-on' : ''} ${closed ? 'closed' : ''} ${opening ? 'opening' : ''}`} style={{ '--duration': `${duration}ms`, '--book-width': `${pageWidth * (single ? 1 : 2)}px`, '--page-height': `${pageHeight}px`, '--cover-width': `${coverHeight * ratio}px`, '--cover-height': `${coverHeight}px`, '--drag': `${drag}px` }} onPointerMove={reveal}>
     <div className={`ambient ${single || (closed && !opening) ? 'ambient-on' : ''}`} aria-hidden="true">{backgrounds.map((src, i) => <div key={i} style={{ backgroundImage: `url("${src}")`, opacity: i === activeBackground ? 1 : 0 }} />)}</div>
-    <header className="book-controls">{tenantContext?.tenant?.logoUrl && <img src={tenantContext.tenant.logoUrl} alt={tenantContext.tenant.name}/>}<span>{tenantContext?.tenant?.name} · {album.title}{tenantContext?.tenant?.slogan ? ` · ${tenantContext.tenant.slogan}` : ''}</span><button onClick={() => setPaused(value => !value)}>{paused ? '播放' : '暂停'}</button><button onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => setError('当前浏览器不支持全屏。')); }}>全屏</button>{!tenantContext?.offline && <><button onClick={publish} disabled={publishing}>发布</button><button disabled={publishing} onClick={async () => { setPublishing(true); try { await downloadOffline(tenantContext, id); } catch (e) { setError(e.message); } finally { setPublishing(false); } }}>{publishing ? '处理中…' : '下载离线包'}</button></>}</header>
+    <header className="book-controls">{tenantContext?.tenant?.logoUrl && <img src={tenantContext.tenant.logoUrl} alt={tenantContext.tenant.name}/>}<span>{tenantContext?.tenant?.name} · {album.title}{tenantContext?.tenant?.slogan ? ` · ${tenantContext.tenant.slogan}` : ''}</span>{onBack && <button onClick={onBack}>返回制作端</button>}<MusicToggle/><button onClick={() => setPaused(value => !value)}>{paused ? '播放' : '暂停'}</button><button onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => setError('当前浏览器不支持全屏。')); }}>全屏</button>{!tenantContext?.offline && <><button onClick={publish} disabled={publishing}>发布</button><button disabled={publishing} onClick={async () => { setPublishing(true); try { await downloadOffline(tenantContext, id); } catch (e) { setError(e.message); } finally { setPublishing(false); } }}>{publishing ? '处理中…' : '下载离线包'}</button><VideoExportButton albumId={id}/></>}</header>
     <main className="book-stage" onTouchStart={e => { interact(); touch.current = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }} onTouchMove={e => { if (e.touches.length > 1 || (visualViewport?.scale ?? 1) > 1.05) { touch.current = null; setDrag(0); } else if (touch.current && single && !busy) { const dx = e.touches[0].clientX - touch.current.x; if (!closed || dx < 0) setDrag(Math.max(-60, Math.min(60, dx * .3))); } }} onTouchEnd={endTouch} onTouchCancel={() => { touch.current = null; setDrag(0); }}>
       <div className="book-engine" ref={host} style={{ opacity: closed && !opening ? 0 : 1 }} />
       {closed && <div className="standalone-cover"><img src={base + pages[0].src} alt="画册封面" /></div>}

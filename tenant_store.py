@@ -17,7 +17,13 @@ def identifier(value):
     return value
 
 def media_url(value):
-    if not isinstance(value, str) or len(value) > 2048:
+    if not isinstance(value, str):
+        raise ValueError('资源地址格式错误')
+    if value.startswith('data:'):
+        if len(value) > 3 * 1024 * 1024 or not re.fullmatch(r'data:image/(?:png|jpeg|svg\+xml);base64,[A-Za-z0-9+/]+={0,2}', value):
+            raise ValueError('内嵌图片仅支持 PNG、JPG 或 SVG，且每张不超过 2 MB')
+        return value
+    if len(value) > 2048:
         raise ValueError('资源地址格式错误')
     parsed = urlsplit(value)
     if value and not (value.startswith('/') and not value.startswith('//')) and not (parsed.scheme in ('https', 'http') and parsed.netloc):
@@ -58,7 +64,9 @@ def validate(data):
             identifier(aid)
             if not (ROOT / 'runtime-albums' / aid / 'album.json').is_file(): raise ValueError('指定的画册不存在')
         if kind == 'video' and not video: raise ValueError('请填写视频直链')
-        catalogs.append(dict(id=cid, tenantId=tid, title=title.strip(), mediaType=kind, albumId=aid if kind == 'album' else '', videoUrl=video))
+        music = media_url(raw.get('musicUrl', ''))
+        if music and music != f'/api/music/{tid}/{cid}': raise ValueError('背景音乐须通过画册音乐上传')
+        catalogs.append(dict(id=cid, tenantId=tid, title=title.strip(), mediaType=kind, albumId=aid if kind == 'album' else '', videoUrl=video, musicUrl=music))
     return dict(tenants=tenants, catalogs=catalogs)
 
 def read():
@@ -66,7 +74,7 @@ def read():
         if STORE.exists(): return json.loads(STORE.read_text(encoding='utf-8'))
         albums = sorted((ROOT / 'runtime-albums').glob('*/album.json'), key=lambda p: p.stat().st_mtime, reverse=True)
         return {'tenants': [dict(id='default', name='我的公司', slogan='', primaryColor='#f36948', logoUrl='', backgroundUrl='')],
-                'catalogs': [dict(id=p.parent.name, tenantId='default', title=json.loads(p.read_text(encoding='utf-8'))['title'], mediaType='album', albumId=p.parent.name, videoUrl='') for p in albums]}
+                'catalogs': [dict(id=p.parent.name, tenantId='default', title=json.loads(p.read_text(encoding='utf-8'))['title'], mediaType='album', albumId=p.parent.name, videoUrl='', musicUrl='') for p in albums]}
 
 def save(data):
     normalized = validate(data)
@@ -106,7 +114,7 @@ def handle(handler, respond, base_url):
             result = resolve(parts[3], parts[4])
         elif handler.command == 'POST' and path in ('/api/config', '/api/catalog-publish'):
             size = int(handler.headers.get('Content-Length', 0))
-            if not 0 < size <= 262144: raise ValueError('配置请求大小须在 256KB 以内')
+            if not 0 < size <= 16 * 1024 * 1024: raise ValueError('配置请求大小不能超过 16 MB')
             data = json.loads(handler.rfile.read(size))
             if path == '/api/config': result = save(data)
             else:

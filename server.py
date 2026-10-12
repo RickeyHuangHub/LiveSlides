@@ -73,6 +73,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         if video_export.handle(self, json_response, tenant_store.resolve): return
+        if urlparse(self.path).path == '/api/music-upload':
+            self.upload_music()
+            return
         if urlparse(self.path).path == '/api/offline-export':
             self.export_offline()
             return
@@ -221,6 +224,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         if video_export.handle(self, json_response, tenant_store.resolve): return
+        music_match = re.fullmatch(r'/api/music/([\w-]+)/([\w-]+)', urlparse(self.path).path)
+        if music_match:
+            self.serve_music(*music_match.groups())
+            return
         if tenant_store.handle(self, json_response, public_base_url): return
         path = unquote(urlparse(self.path).path)
         match = re.fullmatch(r"/api/albums/([\w-]+)/(.*)", path)
@@ -239,6 +246,51 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", "public, max-age=31536000, immutable")
         self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
+    def upload_music(self) -> None:
+        length = int(self.headers.get('Content-Length', '0'))
+        if length <= 0 or length > 25 * 1024 * 1024:
+            json_response(self, 413, {'error': 'MP3 文件须小于 25 MB'})
+            return
+        content_type = self.headers.get('Content-Type', '')
+        if not content_type.startswith('multipart/form-data'):
+            json_response(self, 400, {'error': '请上传 MP3 文件'})
+            return
+        message = BytesParser(policy=default).parsebytes((f'Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n').encode() + self.rfile.read(length))
+        parts = {part.get_param('name', header='content-disposition'): part for part in message.walk() if part.get_param('name', header='content-disposition')}
+        file_part = parts.get('file')
+        try:
+            tid = tenant_store.identifier((parts['tenantId'].get_payload(decode=True) or b'').decode())
+            cid = tenant_store.identifier((parts['catalogId'].get_payload(decode=True) or b'').decode())
+            resolved = tenant_store.resolve(tid, cid)
+            if resolved['catalog']['mediaType'] != 'album': raise ValueError('背景音乐仅适用于 PPT 画册')
+            if not file_part or not str(file_part.get_filename() or '').lower().endswith('.mp3'): raise ValueError('目前仅支持 MP3 音频')
+            data = file_part.get_payload(decode=True) or b''
+            if not data or not (data.startswith(b'ID3') or (len(data) > 1 and data[0] == 0xff and data[1] & 0xe0 == 0xe0)):
+                raise ValueError('文件内容不像有效的 MP3 音频')
+        except (KeyError, ValueError, LookupError) as error:
+            json_response(self, 400, {'error': str(error) or '画册配置无效'})
+            return
+        folder = ROOT / 'runtime-music' / tid
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f'{cid}.mp3').write_bytes(data)
+        json_response(self, 200, {'musicUrl': f'/api/music/{tid}/{cid}', 'bytes': len(data)})
+
+    def serve_music(self, tid: str, cid: str) -> None:
+        try:
+            resolved = tenant_store.resolve(tid, cid)
+            if resolved['catalog'].get('musicUrl') != f'/api/music/{tid}/{cid}': raise LookupError()
+            path = ROOT / 'runtime-music' / tid / f'{cid}.mp3'
+            content = path.read_bytes()
+        except (LookupError, FileNotFoundError):
+            json_response(self, 404, {'error': '背景音乐不存在'})
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'audio/mpeg')
+        self.send_header('Cache-Control', 'public, max-age=31536000, immutable')
+        self.send_header('Content-Length', str(len(content)))
         self.end_headers()
         self.wfile.write(content)
 

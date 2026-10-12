@@ -64,6 +64,15 @@ def write_video(resolved, target, report=lambda message: None, root=ROOT):
     if (root / 'runtime-albums').resolve() not in album_root.parents: raise ValueError('无效画册目录')
     executable = encoder()
     items = scenes(album)
+    music_url = resolved['catalog'].get('musicUrl', '')
+    music_path = None
+    if music_url:
+        match = re.fullmatch(r'/api/music/([A-Za-z0-9_-]+)/([A-Za-z0-9_-]+)', music_url)
+        if not match or match.groups() != (resolved['tenant']['id'], resolved['catalog']['id']):
+            raise ValueError('背景音乐配置与当前画册不匹配')
+        music_path = (root / 'runtime-music' / match[1] / f'{match[2]}.mp3').resolve()
+        music_root = (root / 'runtime-music' / match[1]).resolve()
+        if music_root not in music_path.parents or not music_path.is_file(): raise ValueError('背景音乐文件不存在，请重新上传')
     stay = max(1, min(30, float(album.get('viewer', {}).get('interval', 3000)) / 1000))
     final_stay = max(1, min(30, float(album.get('viewer', {}).get('loopDelay', 2500)) / 1000))
     durations = [stay] * len(items)
@@ -78,12 +87,16 @@ def write_video(resolved, target, report=lambda message: None, root=ROOT):
         sequence.append(f"file 'frame-{len(items)-1:04d}.png'")
         (work / 'frames.txt').write_text('\n'.join(sequence), encoding='utf-8')
         report('正在编码 H.264 / MP4，请稍候…')
-        command = [executable, '-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-f', 'concat', '-safe', '1', '-i', str(work / 'frames.txt'),
-                   '-vf', 'fps=30', '-t', str(sum(durations)), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
-                   '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(target)]
+        command = [executable, '-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-f', 'concat', '-safe', '1', '-i', str(work / 'frames.txt')]
+        if music_path: command += ['-stream_loop', '-1', '-i', str(music_path)]
+        command += ['-vf', 'fps=30', '-t', str(sum(durations)), '-map', '0:v:0', '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
+                    '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
+        if music_path: command += ['-map', '1:a:0', '-c:a', 'aac', '-b:a', '128k', '-shortest']
+        else: command += ['-an']
+        command += [str(target)]
         result = subprocess.run(command, capture_output=True, timeout=900, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         if result.returncode: raise ValueError('FFmpeg 编码失败，请检查 libx264 支持及磁盘空间：' + result.stderr.decode('utf-8', errors='replace')[-1200:])
-    return dict(width=1920, height=1080, fps=30, duration=sum(durations), scenes=len(items), transition='cut')
+    return dict(width=1920, height=1080, fps=30, duration=sum(durations), scenes=len(items), transition='cut', audio=bool(music_path))
 
 def start(resolved):
     if resolved['catalog']['mediaType'] != 'album': raise ValueError('仅支持 PPT 画册导出 MP4')

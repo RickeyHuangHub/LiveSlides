@@ -75,6 +75,18 @@ def make_package(resolved, root=ROOT):
     # Drop unused remote metadata; no sharing UI exists inside offline packages.
     data['album'].pop('share', None)
     data['catalog']['videoUrl'] = ''
+    music_url = data['catalog'].get('musicUrl', '')
+    if music_url:
+        match = re.fullmatch(r'/api/music/([A-Za-z0-9_-]+)/([A-Za-z0-9_-]+)', music_url)
+        if not match or match.groups() != (data['tenant']['id'], data['catalog']['id']):
+            raise ValueError('背景音乐与当前公司或画册配置不匹配')
+        music_path = (root / 'runtime-music' / match[1] / f'{match[2]}.mp3').resolve()
+        music_root = (root / 'runtime-music' / match[1]).resolve()
+        if music_root not in music_path.parents or not music_path.is_file():
+            raise ValueError('背景音乐文件不存在，请重新上传')
+        if music_path.stat().st_size > 25 * 1024 * 1024:
+            raise ValueError('背景音乐超过 25 MB，无法嵌入离线包')
+        data['catalog']['musicUrl'] = 'data:audio/mpeg;base64,' + base64.b64encode(music_path.read_bytes()).decode('ascii')
     payload = json.dumps(data, ensure_ascii=True).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
     script = bundle.read_text(encoding='utf-8').replace('</script', '<\\/script')
     css = stylesheet.read_text(encoding='utf-8').replace('</style', '<\\/style')
