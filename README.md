@@ -39,6 +39,8 @@ The current converter expects LibreOffice at `C:\Program Files\LibreOffice\progr
 
 Prerequisites: Python 3.10+, a Node.js version supported by the locked Vite dependencies, npm, LibreOffice and suitable Chinese fonts (for example Microsoft YaHei or Noto Sans SC). Matching the source fonts matters; fallback fonts cannot guarantee identical layout.
 
+For a simpler Windows workflow, run [`windows/install.bat`](windows/install.bat) once, then use [`windows/start.bat`](windows/start.bat) whenever you want to launch the app. See the [Windows setup and troubleshooting guide](docs/windows-test-package.md). The launcher still requires Python 3.10+, Node.js 20+, LibreOffice and internet access for first-time dependency installation.
+
 MP4 export additionally requires FFmpeg with libx264 in PATH, or an explicit LIVESLIDES_FFMPEG executable path. See [MP4 export](docs/mp4-export.md) for format and playback limits.
 
 ```powershell
