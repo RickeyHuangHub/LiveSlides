@@ -25,8 +25,22 @@ class ConfigTests(unittest.TestCase):
     def test_roundtrip(self):
         saved = store.save(self.data)
         self.assertEqual(saved, store.read())
+        self.assertEqual(saved['catalogs'][0]['musicVolume'], 0.7)
+        self.assertEqual(saved['catalogs'][0]['musicName'], '')
         self.assertEqual(store.resolve('one', 'book')['album']['title'], 'Source')
         self.assertEqual(store.resolve('two', 'book')['catalog']['mediaType'], 'video')
+    def test_music_volume_and_label_persist(self):
+        self.data['catalogs'][0].update(musicName='demo.mp3', musicVolume=0.35)
+        saved = store.save(self.data)
+        self.assertEqual(saved['catalogs'][0]['musicName'], 'demo.mp3')
+        self.assertEqual(saved['catalogs'][0]['musicVolume'], 0.35)
+        self.assertEqual(store.resolve('one', 'book')['catalog']['musicVolume'], 0.35)
+    def test_invalid_music_volume_rejected(self):
+        for value in (-0.1, 1.1, float('nan'), True, '0.5'):
+            invalid = copy.deepcopy(self.data)
+            invalid['catalogs'][0]['musicVolume'] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                store.save(invalid)
     def test_scope_and_missing(self):
         store.save(self.data)
         with self.assertRaises(LookupError): store.resolve('other', 'book')

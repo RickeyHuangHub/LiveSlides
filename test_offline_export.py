@@ -47,6 +47,14 @@ class OfflineTests(unittest.TestCase):
         self.assertNotIn('<link ', page)
         self.assertEqual(original, self.data)
 
+    def test_downloadable_single_html(self):
+        with offline_export.make_html(self.data, self.root) as document:
+            page = document.read().decode('utf-8')
+        self.assertTrue(page.startswith('<!doctype html>'))
+        self.assertIn('<title>Test · 离线画册</title>', page)
+        self.assertIn('data:image/webp;base64,', page)
+        self.assertNotIn('<script src=', page)
+
     def test_script_injection_escaped(self):
         self.data['catalog']['title'] = '</script><script>alert(1)</script>'
         page, data = self.unpack()

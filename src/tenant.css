@@ -9,7 +9,7 @@
 .tenant-brand{display:flex;align-items:center;gap:8px;min-width:0}.tenant-brand img,.tenant-logo{max-width:90px;max-height:32px;object-fit:contain}.tenant-brand small{display:block;font-size:11px;font-weight:400;letter-spacing:0}.tenant-theme .viewer{background-image:var(--tenant-background);background-size:cover;background-position:center}
 .offline-player .viewer-publish{display:none!important}
 @media(max-width:768px){.book-controls{flex-wrap:wrap}.book-controls button{padding:8px 10px}}
-.video-export{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.video-export small{display:block;width:100%;overflow-wrap:anywhere}.video-export a{color:var(--tenant-primary)}
+.video-export{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.video-export small{display:block;width:100%;overflow-wrap:anywhere}.video-export a{color:var(--tenant-primary)}.video-export .mp4-download-ready{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 14px;border:1px solid #059669;border-radius:7px;background:#ecfdf5;color:#047857;font-weight:700;text-decoration:none;white-space:nowrap}.video-export .mp4-download-ready:hover{background:#d1fae5;border-color:#047857}
 .config-toggle{color:#111827}.tenant-video header{background:linear-gradient(rgba(255,255,255,.96),rgba(255,255,255,.82),transparent);color:#172033;backdrop-filter:blur(8px)}.tenant-video header button{background:rgba(255,255,255,.9);border:1px solid #cbd2dd;border-radius:7px;color:#172033}
 .config-layout:has(.responsive-book) .config-sidebar,.config-layout:has(.viewer) .config-sidebar{width:360px;padding:28px 24px 76px;background:#f8fafc;border-right:3px solid #f36948}.config-sidebar h2{font-size:23px;color:#172033}.config-sidebar p,.config-sidebar small{font-size:14px;color:#536174}.config-sidebar label{font-size:15px;font-weight:600;color:#344256}.config-sidebar input,.config-sidebar select{font-size:15px;padding:11px 12px;border-color:#cbd4df}.config-sidebar button{font-size:14px;color:#172033;border-color:#cbd4df}.config-sidebar .music-upload-card{margin:18px 0;padding:16px;border:1px solid #f1b19f;border-radius:12px;background:#fff7f3;box-shadow:0 5px 18px #28384b0b}.config-sidebar .music-upload-card strong{display:block;font-size:17px;color:#172033}.config-sidebar .music-upload-card p{margin:6px 0 12px;font-size:14px;color:#536174}.config-sidebar .music-file-button{position:relative;display:flex;justify-content:center;align-items:center;min-height:46px;margin:0;padding:10px 14px;border:0;border-radius:8px;background:#f7a28c;color:#172033;text-align:center;font-size:15px;font-weight:700;cursor:pointer}.config-sidebar .music-file-button input[type=file]{position:absolute;inset:0;width:100%;height:100%;padding:0;opacity:0;cursor:pointer}.config-sidebar .music-upload-card small{display:block;margin-top:10px;font-size:13px;line-height:1.5;color:#596577}.config-sidebar label:has(input[type=file]){margin:0}
 .config-sidebar .music-settings-jump{display:block;margin:12px 0 18px;padding:12px 14px;border:1px solid #efae9d;border-radius:9px;background:#fff1eb;color:#8f3420;font-size:15px;font-weight:700;text-decoration:none}.config-sidebar .music-settings-jump:hover{background:#ffe3d9}
@@ -80,3 +80,38 @@
 .image-drop-overlay{position:absolute;inset:0;display:grid;place-items:center;border-radius:6px;background:#f8fafceF;color:#0f172a;font-size:13px;font-weight:600}
 .image-upload-error{color:#b91c1c!important;font-size:12px}
 @media(max-width:900px){.config-layout:has(.responsive-book) .config-sidebar,.config-layout:has(.viewer) .config-sidebar{border-right:0!important;border-bottom:1px solid #cbd5e1!important}}
+
+/* Music is a first-class studio action with visible confirmation and preview controls. */
+.music-quick-toggle{position:fixed;left:132px;bottom:16px;z-index:111;min-height:42px;padding:10px 15px;border:1px solid #c2410c;border-radius:8px;background:#fff7ed;color:#7c2d12;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(15,23,42,.16);cursor:pointer}
+.music-quick-toggle:hover,.music-quick-toggle:focus-visible{background:#ffedd5;border-color:#9a3412;outline:2px solid rgba(234,88,12,.2);outline-offset:2px}
+.config-sidebar .music-card-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.config-sidebar .music-card-heading strong{font-size:17px!important}
+.config-sidebar .music-card-heading>span{padding:3px 8px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#475569;font-size:11px}
+.config-sidebar .music-upload-card>p{margin:7px 0 12px}
+.config-sidebar .music-upload-card .music-file-button{width:100%;min-height:44px;border:1px solid #ea580c!important;background:#fff7ed!important;color:#7c2d12!important;font-weight:700!important}
+.config-sidebar .music-upload-card .music-file-button:hover,.config-sidebar .music-upload-card .music-file-button:focus-within{background:#ffedd5!important;box-shadow:0 0 0 2px rgba(234,88,12,.14)!important}
+.music-preview-controls{margin-top:12px;padding:11px;border:1px solid #dbe2ea;border-radius:7px;background:#fff}
+.music-preview-controls audio{display:none}
+.music-selected-status{display:flex;align-items:center;gap:9px;min-width:0;padding:9px 10px;border:1px solid #a7f3d0;border-radius:6px;background:#f0fdf4}
+.music-status-dot{width:10px;height:10px;flex:none;border-radius:50%;background:#059669;box-shadow:0 0 0 3px #d1fae5}
+.music-selected-status>span:nth-child(2){display:grid;min-width:0;gap:2px}
+.config-sidebar .music-selected-status strong{font-size:13px!important;color:#065f46!important}
+.config-sidebar .music-selected-status small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-saved-badge{flex:none;padding:3px 7px;border-radius:999px;background:#059669;color:#fff;font-size:10px;font-style:normal;font-weight:700}
+.music-preview-actions{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;margin-top:11px}
+.config-sidebar .music-preview-button{min-height:36px;margin:0;padding:7px 11px;border:1px solid #059669!important;background:#ecfdf5!important;color:#065f46!important;font-weight:650}
+.config-sidebar .music-preview-button:hover{background:#d1fae5!important;border-color:#047857!important}
+.config-sidebar .music-volume-control{display:grid;grid-template-columns:auto minmax(55px,1fr) auto;align-items:center;gap:7px;margin:0;color:#334155!important;font-size:11px!important}
+.config-sidebar .music-volume-control input[type=range]{width:100%;height:18px;margin:0;padding:0;border:0!important;background:transparent!important;accent-color:#059669;box-shadow:none!important}
+.music-volume-control output{min-width:34px;color:#0f172a;font-variant-numeric:tabular-nums;text-align:right}
+.config-sidebar .music-save-hint,.config-sidebar .music-file-limit{display:block;margin-top:8px;color:#64748b!important;font-size:11px!important}
+.config-sidebar .music-preview-error{display:block;margin-top:8px;color:#b91c1c!important}
+.config-sidebar .music-empty-state{margin:12px 0 0!important;padding:10px;border-radius:6px;background:#f1f5f9;color:#475569!important;font-size:12px!important}
+.music-toggle{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto!important}
+.music-toggle audio{display:none}
+.music-toggle button{white-space:nowrap}
+.music-player-volume{display:inline-flex;align-items:center;gap:5px;color:inherit;font-size:11px;white-space:nowrap}
+.music-player-volume input[type=range]{width:76px;height:18px;margin:0;padding:0;accent-color:#059669}
+.music-toggle output{min-width:32px;font-size:11px;font-variant-numeric:tabular-nums}
+:fullscreen .music-quick-toggle,:fullscreen .config-toggle{display:none!important}
+@media(max-width:900px){.music-quick-toggle{left:110px;bottom:8px;min-height:40px;padding:8px 10px;font-size:12px}.music-preview-actions{grid-template-columns:1fr;gap:9px}.music-player-volume input[type=range]{width:56px}}

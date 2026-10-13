@@ -13,8 +13,8 @@ ROOT = Path(__file__).parent
 MAX_ASSETS = 256 * 1024 * 1024
 IMAGE_TYPES = {'.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif'}
 
-def make_package(resolved, root=ROOT):
-    """Caller owns and must close returned seekable zip file."""
+def make_document(resolved, root=ROOT):
+    """Build the complete, self-contained HTML playback document."""
     root = Path(root)
     bundle = root / 'offline-dist' / 'player.js'
     stylesheet = root / 'offline-dist' / 'player.css'
@@ -98,7 +98,24 @@ def make_package(resolved, root=ROOT):
 <title>{title} · 离线画册</title><style>{css}</style></head>
 <body><div id="root"></div><noscript>请使用允许 JavaScript 的现代浏览器打开画册。</noscript>
 <script>window.__LIVESLIDES_OFFLINE__={payload};</script><script>{script}</script></body></html>'''
-    instructions = f'''{data['catalog']['title']} — 离线播放包
+    return document
+
+def make_html(resolved, root=ROOT):
+    """Caller owns and must close the returned seekable HTML file."""
+    result = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024, mode='w+b')
+    try:
+        result.write(make_document(resolved, root).encode('utf-8'))
+        result.seek(0)
+        return result
+    except Exception:
+        result.close()
+        raise
+
+def make_package(resolved, root=ROOT):
+    """Caller owns and must close returned seekable zip file."""
+    document = make_document(resolved, root)
+    title = resolved['catalog']['title']
+    instructions = f'''{title} — 离线播放包
 
 1. 将 ZIP 完整解压到电脑上的文件夹，不要直接在压缩包预览中打开。
 2. 双击“开始播放.html”，用 Microsoft Edge 或 Chrome 打开。

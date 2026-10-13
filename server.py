@@ -79,6 +79,9 @@ class Handler(BaseHTTPRequestHandler):
         if urlparse(self.path).path == '/api/offline-export':
             self.export_offline()
             return
+        if urlparse(self.path).path == '/api/html-export':
+            self.export_html()
+            return
         if tenant_store.handle(self, json_response, public_base_url): return
         route = urlparse(self.path).path
         if route == "/api/publish":
@@ -221,6 +224,35 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Length', str(length))
             self.end_headers()
             shutil.copyfileobj(package, self.wfile)
+
+    def export_html(self) -> None:
+        try:
+            size = int(self.headers.get('Content-Length', '0'))
+            if not 0 < size <= 4096: raise ValueError('无效的 HTML 导出请求')
+            payload = json.loads(self.rfile.read(size))
+            resolved = tenant_store.resolve(payload['tenantId'], payload['catalogId'])
+            document = offline_export.make_html(resolved)
+        except (KeyError, ValueError, TypeError) as error:
+            json_response(self, 400, {'error': str(error)})
+            return
+        except (LookupError, FileNotFoundError):
+            json_response(self, 404, {'error': '公司、画册或离线资源不存在'})
+            return
+        except OSError:
+            json_response(self, 500, {'error': '无法读取离线资源，请检查磁盘与文件权限'})
+            return
+        with document:
+            document.seek(0, 2)
+            length = document.tell()
+            document.seek(0)
+            filename = quote(f"{resolved['catalog']['id']}-播放.html")
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Disposition', f"attachment; filename=LiveSlides-player.html; filename*=UTF-8''{filename}")
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', str(length))
+            self.end_headers()
+            shutil.copyfileobj(document, self.wfile)
 
     def do_GET(self) -> None:
         if video_export.handle(self, json_response, tenant_store.resolve): return

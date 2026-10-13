@@ -14,5 +14,7 @@ export interface CatalogConfig {
   albumId: string;
   videoUrl: string;
   musicUrl?: string;
+  musicName?: string;
+  musicVolume?: number;
 }
 export interface ConfigStore { tenants: TenantConfig[]; catalogs: CatalogConfig[] }

@@ -1,5 +1,6 @@
 """File-backed presentation configuration; not an authentication boundary."""
 import json
+import math
 import os
 import re
 import threading
@@ -66,7 +67,11 @@ def validate(data):
         if kind == 'video' and not video: raise ValueError('请填写视频直链')
         music = media_url(raw.get('musicUrl', ''))
         if music and music != f'/api/music/{tid}/{cid}': raise ValueError('背景音乐须通过画册音乐上传')
-        catalogs.append(dict(id=cid, tenantId=tid, title=title.strip(), mediaType=kind, albumId=aid if kind == 'album' else '', videoUrl=video, musicUrl=music))
+        music_name = raw.get('musicName', '')
+        if not isinstance(music_name, str) or len(music_name) > 200 or any(c in music_name for c in ('/', '\\', '\n', '\r')): raise ValueError('背景音乐文件名无效')
+        music_volume = raw.get('musicVolume', 0.7)
+        if isinstance(music_volume, bool) or not isinstance(music_volume, (int, float)) or not math.isfinite(music_volume) or not 0 <= music_volume <= 1: raise ValueError('音乐音量必须在 0 到 1 之间')
+        catalogs.append(dict(id=cid, tenantId=tid, title=title.strip(), mediaType=kind, albumId=aid if kind == 'album' else '', videoUrl=video, musicUrl=music, musicName=music_name.strip(), musicVolume=round(float(music_volume), 2)))
     return dict(tenants=tenants, catalogs=catalogs)
 
 def read():
@@ -74,7 +79,7 @@ def read():
         if STORE.exists(): return json.loads(STORE.read_text(encoding='utf-8'))
         albums = sorted((ROOT / 'runtime-albums').glob('*/album.json'), key=lambda p: p.stat().st_mtime, reverse=True)
         return {'tenants': [dict(id='default', name='我的公司', slogan='', primaryColor='#f36948', logoUrl='', backgroundUrl='')],
-                'catalogs': [dict(id=p.parent.name, tenantId='default', title=json.loads(p.read_text(encoding='utf-8'))['title'], mediaType='album', albumId=p.parent.name, videoUrl='', musicUrl='') for p in albums]}
+                'catalogs': [dict(id=p.parent.name, tenantId='default', title=json.loads(p.read_text(encoding='utf-8'))['title'], mediaType='album', albumId=p.parent.name, videoUrl='', musicUrl='', musicName='', musicVolume=0.7) for p in albums]}
 
 def save(data):
     normalized = validate(data)

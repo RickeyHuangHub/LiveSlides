@@ -54,6 +54,22 @@ def render_scene(group, album_root, size=(1920, 1080)):
     fitted.close(); combined.close()
     return frame
 
+def build_ffmpeg_command(executable, frames_file, target, duration, music_path=None, music_volume=0.7):
+    """Build a predictable, low-memory 1080p H.264 command for modest PCs."""
+    command = [executable, '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+               '-filter_threads', '1', '-f', 'concat', '-safe', '1', '-i', str(frames_file)]
+    if music_path: command += ['-stream_loop', '-1', '-i', str(music_path)]
+    command += ['-vf', 'fps=30', '-t', str(duration), '-map', '0:v:0', '-c:v', 'libx264',
+                '-threads:v', '1', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart']
+    if music_path:
+        volume = max(0, min(1, float(music_volume)))
+        command += ['-map', '1:a:0', '-af', f'volume={volume}', '-c:a', 'aac', '-b:a', '128k', '-shortest']
+    else:
+        command += ['-an']
+    command.append(str(target))
+    return command
+
 def write_video(resolved, target, report=lambda message: None, root=ROOT):
     if resolved['catalog']['mediaType'] != 'album': raise ValueError('仅支持 PPT 画册导出 MP4')
     album = resolved['album']
@@ -87,15 +103,11 @@ def write_video(resolved, target, report=lambda message: None, root=ROOT):
         sequence.append(f"file 'frame-{len(items)-1:04d}.png'")
         (work / 'frames.txt').write_text('\n'.join(sequence), encoding='utf-8')
         report('正在编码 H.264 / MP4，请稍候…')
-        command = [executable, '-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-f', 'concat', '-safe', '1', '-i', str(work / 'frames.txt')]
-        if music_path: command += ['-stream_loop', '-1', '-i', str(music_path)]
-        command += ['-vf', 'fps=30', '-t', str(sum(durations)), '-map', '0:v:0', '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
-                    '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
-        if music_path: command += ['-map', '1:a:0', '-c:a', 'aac', '-b:a', '128k', '-shortest']
-        else: command += ['-an']
-        command += [str(target)]
+        command = build_ffmpeg_command(executable, work / 'frames.txt', target, sum(durations), music_path,
+                                       resolved['catalog'].get('musicVolume', 0.7))
         result = subprocess.run(command, capture_output=True, timeout=900, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-        if result.returncode: raise ValueError('FFmpeg 编码失败，请检查 libx264 支持及磁盘空间：' + result.stderr.decode('utf-8', errors='replace')[-1200:])
+        if result.returncode:
+            raise ValueError('FFmpeg 编码失败（已限制为单线程以降低内存占用），请检查 FFmpeg/libx264、可用内存和磁盘空间：' + result.stderr.decode('utf-8', errors='replace')[-1200:])
     return dict(width=1920, height=1080, fps=30, duration=sum(durations), scenes=len(items), transition='cut', audio=bool(music_path))
 
 def start(resolved):
